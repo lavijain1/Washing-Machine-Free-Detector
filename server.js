@@ -38,13 +38,13 @@ const SensorReading = mongoose.model('SensorReading', sensorReadingSchema);
 app.post('/reading',async (req, res) => {
     // Extract sensor reading data from request body
     try{
-    const { sensorId, value , timestamp} = req.body;
+    const { sensorId, value, timestamp } = req.body;
 
     // Create a new sensor reading document
     const newReading = new SensorReading({
         sensorId: sensorId,
         value: value,
-      timestamp: timestamp
+        timestamp: timestamp
     });
 
     // Save the sensor reading to the database
@@ -61,10 +61,112 @@ app.post('/reading',async (req, res) => {
     }
     
 });
+app.get('/readings', async (req, res) => {
+  try {
+    // Retrieve all sensor readings from the database
+    const allReadings = await SensorReading.find();
+    res.status(200).json(allReadings);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/readings/:sensorId', async (req, res) => {
+  try {
+    const sensorId = req.params.sensorId;
+
+    // Retrieve the latest sensor reading for the given sensorId
+    const latestReading = await SensorReading.findOne({ sensorId })
+      .sort('-timestamp')
+      .exec();
+
+    if (latestReading) {
+      res.status(200).json(latestReading);
+    } else {
+      res.status(404).json({ message: 'No readings found for the given sensorId.' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+
+// API endpoint to get total wash cycles for all sensors on a given day
+app.get('/washcycles/:date', async (req, res) => {
+  try {
+    const date = new Date(req.params.date);
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find all sensor readings for the given day
+    const readings = await SensorReading.find({
+      timestamp: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    }).sort({ sensorId: 1, timestamp: 1 });
+
+    // Calculate wash cycles for all sensors
+    let washCycleCount = 0;
+    let lastWashCycleEnd = {};
+    readings.forEach(reading => {
+      const { sensorId, timestamp } = reading;
+      if (!lastWashCycleEnd[sensorId] || timestamp > lastWashCycleEnd[sensorId]) {
+        washCycleCount++;
+        lastWashCycleEnd[sensorId] = new Date(timestamp.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
+      } else {
+        lastWashCycleEnd[sensorId] = new Date(lastWashCycleEnd[sensorId].getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
+      }
+    });
+
+    res.status(200).json({ washCycleCount });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// API endpoint to get total wash cycles for a specific sensor on a given day
+app.get('/washcycles/:sensorId/:date', async (req, res) => {
+  try {
+    const sensorId = req.params.sensorId;
+    const date = new Date(req.params.date);
+    const startOfDay = new Date(date);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Find sensor readings for the given sensorId and day
+    const readings = await SensorReading.find({
+      sensorId,
+      timestamp: {
+        $gte: startOfDay,
+        $lte: endOfDay
+      }
+    }).sort({ timestamp: 1 });
+
+    // Calculate wash cycles for the specific sensor
+    let washCycleCount = 0;
+    let lastWashCycleEnd = null;
+    readings.forEach(reading => {
+      if (!lastWashCycleEnd || reading.timestamp > lastWashCycleEnd) {
+        washCycleCount++;
+        lastWashCycleEnd = new Date(reading.timestamp.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
+      } else {
+        lastWashCycleEnd = new Date(lastWashCycleEnd.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
+      }
+    });
+
+    res.status(200).json({ washCycleCount });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 
 // Start the server
 const port = 3000;
 app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`);
 });
-
