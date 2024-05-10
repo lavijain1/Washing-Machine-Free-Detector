@@ -38,12 +38,13 @@ const SensorReading = mongoose.model('SensorReading', sensorReadingSchema);
 app.post('/reading',async (req, res) => {
     // Extract sensor reading data from request body
     try{
-    const { sensorId, value } = req.body;
+    const { sensorId, value , timestamp} = req.body;
 
     // Create a new sensor reading document
     const newReading = new SensorReading({
         sensorId: sensorId,
-        value: value
+        value: value,
+      timestamp: timestamp
     });
 
     // Save the sensor reading to the database
