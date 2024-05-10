@@ -111,13 +111,23 @@ app.get('/washcycles/:date', async (req, res) => {
     // Calculate wash cycles for all sensors
     let washCycleCount = 0;
     let lastWashCycleEnd = {};
+    let lastReadingTimestamp = {};
+
     readings.forEach(reading => {
       const { sensorId, timestamp } = reading;
-      if (!lastWashCycleEnd[sensorId] || timestamp > lastWashCycleEnd[sensorId]) {
+
+      // If the sensorId is encountered for the first time or the current reading is more than 3 minutes from the last reading, start a new wash cycle
+      if (!lastReadingTimestamp[sensorId] || Math.abs(timestamp - lastReadingTimestamp[sensorId])  > 180000) {
         washCycleCount++;
         lastWashCycleEnd[sensorId] = new Date(timestamp.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
-      } else {
-        lastWashCycleEnd[sensorId] = new Date(lastWashCycleEnd[sensorId].getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
+      }
+
+      // Update the last reading timestamp for the current sensorId
+      lastReadingTimestamp[sensorId] = timestamp;
+
+      // Update lastWashCycleEnd if necessary (if the wash cycle duration exceeds 60 minutes)
+      if (timestamp > lastWashCycleEnd[sensorId]) {
+        lastWashCycleEnd[sensorId] = new Date(timestamp.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
       }
     });
 
@@ -127,7 +137,6 @@ app.get('/washcycles/:date', async (req, res) => {
   }
 });
 
-// API endpoint to get total wash cycles for a specific sensor on a given day
 app.get('/washcycles/:sensorId/:date', async (req, res) => {
   try {
     const sensorId = req.params.sensorId;
@@ -136,6 +145,8 @@ app.get('/washcycles/:sensorId/:date', async (req, res) => {
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
+
+
 
     // Find sensor readings for the given sensorId and day
     const readings = await SensorReading.find({
@@ -146,20 +157,37 @@ app.get('/washcycles/:sensorId/:date', async (req, res) => {
       }
     }).sort({ timestamp: 1 });
 
+
+
     // Calculate wash cycles for the specific sensor
+     // Calculate wash cycles for all sensors
     let washCycleCount = 0;
-    let lastWashCycleEnd = null;
-    readings.forEach(reading => {
-      if (!lastWashCycleEnd || reading.timestamp > lastWashCycleEnd) {
+    let lastWashCycleEnd = {};
+    let lastReadingTimestamp = {};
+
+     readings.forEach(reading => {
+      const { sensorId, timestamp } = reading;
+
+      // If the sensorId is encountered for the first time or the current reading is more than 3 minutes from the last reading, start a new wash cycle
+      if (!lastReadingTimestamp[sensorId] || Math.abs(timestamp - lastReadingTimestamp[sensorId])  > 180000) {
         washCycleCount++;
-        lastWashCycleEnd = new Date(reading.timestamp.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
-      } else {
-        lastWashCycleEnd = new Date(lastWashCycleEnd.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
+        lastWashCycleEnd[sensorId] = new Date(timestamp.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
+      }
+
+      // Update the last reading timestamp for the current sensorId
+      lastReadingTimestamp[sensorId] = timestamp;
+
+      // Update lastWashCycleEnd if necessary (if the wash cycle duration exceeds 60 minutes)
+      if (timestamp > lastWashCycleEnd[sensorId]) {
+        lastWashCycleEnd[sensorId] = new Date(timestamp.getTime() + (40 * 60000)); // Assuming wash cycle lasts 40-60 minutes
       }
     });
 
+
+
     res.status(200).json({ washCycleCount });
   } catch (err) {
+    console.error(`Error: ${err.message}`);
     res.status(500).json({ message: err.message });
   }
 });
