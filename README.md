@@ -18,3 +18,5 @@ The system uses **ESP32 microcontrollers** integrated with **MPU6050 sensors** t
 - **ESP32 Microcontroller:** The brain of the system, responsible for gathering data from sensors and communicating with the server.
 - **MPU6050 Sensor:** Detects the machine's vibration and motion to determine if it is in use or idle.
 ### Output:-
+
+Implementation Video:- https://drive.google.com/file/d/1JInTwAXdJQD2imn_gSUkZh9jTTegLpmF/view?usp=sharing
